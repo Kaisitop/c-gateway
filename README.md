@@ -50,6 +50,8 @@ Content-Type: application/json
 }
 ```
 
+> **Nota Flujo Ciudadano:** Este endpoint solo gestiona la identidad. Para la app ciudadana, inmediatamente después de registrarse y autenticarse, el frontend debe asignar la zona residencial llamando a `POST /api/zonas/usuarios/{{usuarioId}}/principal`.
+
 ### Login
 
 ```http
@@ -217,6 +219,46 @@ Soft delete: marca `activa = false`.
 
 ```http
 DELETE /api/zonas/{{zonaId}}
+Authorization: Bearer {{accessToken}}
+```
+
+### Zonas por Usuario
+
+Asigna una zona principal o suscribe un usuario a zonas de interés (máximo 3).
+
+**Ver zonas del usuario**
+```http
+GET /api/zonas/usuarios/{{usuarioId}}
+Authorization: Bearer {{accessToken}}
+```
+
+**Establecer zona principal**
+Reemplaza automáticamente si ya existe una.
+```http
+POST /api/zonas/usuarios/{{usuarioId}}/principal
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "zonaId": "{{zonaId}}"
+}
+```
+
+**Suscribir a zona adicional**
+Límite máximo de 3 zonas por usuario.
+```http
+POST /api/zonas/usuarios/{{usuarioId}}/suscripciones
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "zonaId": "{{zonaId}}"
+}
+```
+
+**Eliminar suscripción**
+```http
+DELETE /api/zonas/usuarios/{{usuarioId}}/suscripciones/{{zonaId}}
 Authorization: Bearer {{accessToken}}
 ```
 

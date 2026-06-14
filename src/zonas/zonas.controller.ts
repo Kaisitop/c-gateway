@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Inject, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Inject, UseGuards, Req, ForbiddenException } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { NATS_SERVICE } from '../config/service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -39,5 +39,38 @@ export class ZonasController {
   @RequirePermissions('zonas:gestionar')
   remove(@Param('id') id: string) {
     return this.client.send('zonas.remove', id);
+  }
+
+  // ---- Endpoints para Usuario_Zonas ----
+
+  @Get('usuarios/:usuarioId')
+  getUserZonas(@Param('usuarioId') usuarioId: string, @Req() req: any) {
+    this.checkSelfOrAdmin(req, usuarioId);
+    return this.client.send('usuario_zonas.get_by_user', usuarioId);
+  }
+
+  @Post('usuarios/:usuarioId/principal')
+  setZonaPrincipal(@Param('usuarioId') usuarioId: string, @Body('zonaId') zonaId: string, @Req() req: any) {
+    this.checkSelfOrAdmin(req, usuarioId);
+    return this.client.send('usuario_zonas.set_principal', { usuarioId, zonaId });
+  }
+
+  @Post('usuarios/:usuarioId/suscripciones')
+  subscribeZona(@Param('usuarioId') usuarioId: string, @Body('zonaId') zonaId: string, @Req() req: any) {
+    this.checkSelfOrAdmin(req, usuarioId);
+    return this.client.send('usuario_zonas.subscribe', { usuarioId, zonaId });
+  }
+
+  @Delete('usuarios/:usuarioId/suscripciones/:zonaId')
+  unsubscribeZona(@Param('usuarioId') usuarioId: string, @Param('zonaId') zonaId: string, @Req() req: any) {
+    this.checkSelfOrAdmin(req, usuarioId);
+    return this.client.send('usuario_zonas.unsubscribe', { usuarioId, zonaId });
+  }
+
+  private checkSelfOrAdmin(req: any, targetUserId: string) {
+    const user = req.user;
+    if (user.sub !== targetUserId && !user.permisos?.includes('zonas:gestionar')) {
+      throw new ForbiddenException('No tienes permisos para acceder a las zonas de este usuario');
+    }
   }
 }
