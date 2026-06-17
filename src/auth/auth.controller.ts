@@ -6,27 +6,71 @@ import { LoginUserDto, RegisterUserDto, RefreshTokenDto, VerifyEmailDto, ForgotP
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
+import { firstValueFrom } from 'rxjs';
 
 @Controller('auth')
 export class AuthController {
   constructor(@Inject(NATS_SERVICE) private readonly client: ClientProxy) {}
 
   @Post('register')
-  registerUser(@Body() registerUserDto: RegisterUserDto) {
-    return this.client.send('register.user.auth', registerUserDto)
+  async registerUser(@Body() registerUserDto: RegisterUserDto) {
+    const { zonaId, ...userData } = registerUserDto;
+    
+    // 1. Registrar usuario en ms-auth
+    const authResponse = await firstValueFrom(
+      this.client.send('register.user.auth', userData)
+    );
+
+    // 2. Si hay zonaId, asignar la zona principal en ms-core
+    if (zonaId && authResponse.id) {
+      try {
+        await firstValueFrom(
+          this.client.send('usuario_zonas.set_principal', {
+            usuarioId: authResponse.id,
+            zonaId: zonaId,
+          })
+        );
+      } catch (error) {
+        // Podríamos loggear el error, pero no fallar el registro principal
+        console.error('Error al asignar zona en el registro:', error);
+      }
+    }
+
+    return authResponse;
   }
 
   @Post('login')
-  loginUser(
+  async loginUser(
     @Body() loginUserDto: LoginUserDto,
     @Ip() ipAddress: string,
     @Headers('user-agent') userAgent: string,
   ) {
-    return this.client.send('login.user.auth', {
-      ...loginUserDto,
-      ipAddress,
-      userAgent: userAgent || 'Unknown',
-    });
+    // 1. Iniciar sesión en ms-auth
+    const loginResponse = await firstValueFrom(
+      this.client.send('login.user.auth', {
+        ...loginUserDto,
+        ipAddress,
+        userAgent: userAgent || 'Unknown',
+      })
+    );
+
+    // 2. Obtener las zonas del usuario desde ms-core
+    try {
+      const zonas = await firstValueFrom(
+        this.client.send('usuario_zonas.get_by_user', loginResponse.user.id)
+      );
+      
+      const zonaPrincipal = zonas.find((z: any) => z.tipo === 'principal');
+      
+      if (zonaPrincipal) {
+        // Inyectar zonaPrincipalId en la respuesta
+        loginResponse.zonaPrincipalId = zonaPrincipal.zonaId;
+      }
+    } catch (error) {
+      console.error('Error al obtener zonas en el login:', error);
+    }
+
+    return loginResponse;
   }
 
   @Post('refresh')
