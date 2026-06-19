@@ -15,7 +15,7 @@ async function bootstrap() {
     }),
   );
   app.useGlobalFilters(new RpcCustomExceptionFilter());
-  
+  app.enableCors();
   await app.listen(envs.port);
   logger.log(`Client Gateway corriendo en el puerto ${envs.port}`)
 }
