@@ -1,4 +1,16 @@
-import { Controller, Post, Delete, Body, Param, Inject, Headers, Ip, UseGuards, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Inject,
+  Headers,
+  Ip,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 
 import { NATS_SERVICE } from '../config/service';
 import { ClientProxy } from '@nestjs/microservices';
@@ -21,18 +33,22 @@ export class AuthController {
       this.client.send('register.user.auth', userData)
     );
 
-    // 2. Si hay zonaId, asignar la zona principal en ms-core
+    // 2. Si hay zonaId, asignar la zona principal en ms-core (obligatorio si se envía)
     if (zonaId && authResponse.id) {
       try {
         await firstValueFrom(
           this.client.send('usuario_zonas.set_principal', {
             usuarioId: authResponse.id,
             zonaId: zonaId,
-          })
+          }),
         );
       } catch (error) {
-        // Podríamos loggear el error, pero no fallar el registro principal
         console.error('Error al asignar zona en el registro:', error);
+        const message =
+          error?.message ??
+          error?.response?.message ??
+          'No se pudo asignar la zona al usuario registrado';
+        throw new BadRequestException(message);
       }
     }
 
@@ -54,36 +70,42 @@ export class AuthController {
       })
     );
 
-    // 2. Obtener las zonas del usuario desde ms-core
-    try {
-      const zonas = await firstValueFrom(
-        this.client.send('usuario_zonas.get_by_user', loginResponse.user.id)
-      );
-      
-      const zonaPrincipal = zonas.find((z: any) => z.tipo === 'principal');
-      
-      if (zonaPrincipal) {
-        // Inyectar zonaPrincipalId en la respuesta
-        loginResponse.zonaPrincipalId = zonaPrincipal.zonaId;
-      }
-    } catch (error) {
-      console.error('Error al obtener zonas en el login:', error);
-    }
-
-    return loginResponse;
+    return this.enrichWithZonaPrincipal(loginResponse);
   }
 
   @Post('refresh')
-  refreshToken(
+  async refreshToken(
     @Body() refreshTokenDto: RefreshTokenDto,
     @Ip() ipAddress: string,
     @Headers('user-agent') userAgent: string,
   ) {
-    return this.client.send('refresh.token.auth', {
-      ...refreshTokenDto,
-      ipAddress,
-      userAgent: userAgent || 'Unknown',
-    });
+    const refreshResponse = await firstValueFrom(
+      this.client.send('refresh.token.auth', {
+        ...refreshTokenDto,
+        ipAddress,
+        userAgent: userAgent || 'Unknown',
+      }),
+    );
+
+    return this.enrichWithZonaPrincipal(refreshResponse);
+  }
+
+  private async enrichWithZonaPrincipal<T extends { user: { id: string }; zonaPrincipalId?: string | null }>(
+    response: T,
+  ): Promise<T & { zonaPrincipalId: string | null }> {
+    try {
+      const zonas = await firstValueFrom(
+        this.client.send('usuario_zonas.get_by_user', response.user.id),
+      );
+
+      const zonaPrincipal = zonas.find((z: { tipo: string; zonaId: string }) => z.tipo === 'principal');
+      response.zonaPrincipalId = zonaPrincipal?.zonaId ?? null;
+    } catch (error) {
+      console.error('Error al obtener zonas del usuario:', error);
+      response.zonaPrincipalId = null;
+    }
+
+    return response as T & { zonaPrincipalId: string | null };
   }
 
   @Post('logout')
