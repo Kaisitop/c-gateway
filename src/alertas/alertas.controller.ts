@@ -17,6 +17,12 @@ export class AlertasController {
     return this.natsClient.send('alertas.findAll', {});
   }
 
+  @Get(':id')
+  @RequirePermissions('eventos:leer')
+  findOne(@Param('id') id: string) {
+    return this.natsClient.send('alertas.findOne', { id });
+  }
+
   @Post(':id/reconocer')
   @RequirePermissions('eventos:gestionar')
   reconocer(@Param('id') id: string, @Req() req: any) {
