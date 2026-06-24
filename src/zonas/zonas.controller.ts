@@ -7,35 +7,37 @@ import { RequirePermissions } from '../common/decorators/require-permissions.dec
 import { CreateZonaDto, UpdateZonaDto } from './dto';
 
 @Controller('zonas')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ZonasController {
   constructor(@Inject(NATS_SERVICE) private readonly client: ClientProxy) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('zonas:gestionar')
   create(@Body() createZonaDto: CreateZonaDto) {
     return this.client.send('zonas.create', createZonaDto);
   }
 
   @Get()
-  @RequirePermissions('zonas:leer')
   findAll() {
     return this.client.send('zonas.findAll', {});
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('zonas:leer')
   findOne(@Param('id') id: string) {
     return this.client.send('zonas.findOne', id);
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('zonas:gestionar')
   update(@Param('id') id: string, @Body() updateZonaDto: UpdateZonaDto) {
     return this.client.send('zonas.update', { id, data: updateZonaDto });
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('zonas:gestionar')
   remove(@Param('id') id: string) {
     return this.client.send('zonas.remove', id);
@@ -44,24 +46,28 @@ export class ZonasController {
   // ---- Endpoints para Usuario_Zonas ----
 
   @Get('usuarios/:usuarioId')
+  @UseGuards(JwtAuthGuard)
   getUserZonas(@Param('usuarioId') usuarioId: string, @Req() req: any) {
     this.checkSelfOrAdmin(req, usuarioId);
     return this.client.send('usuario_zonas.get_by_user', usuarioId);
   }
 
   @Post('usuarios/:usuarioId/principal')
+  @UseGuards(JwtAuthGuard)
   setZonaPrincipal(@Param('usuarioId') usuarioId: string, @Body('zonaId') zonaId: string, @Req() req: any) {
     this.checkSelfOrAdmin(req, usuarioId);
     return this.client.send('usuario_zonas.set_principal', { usuarioId, zonaId });
   }
 
   @Post('usuarios/:usuarioId/suscripciones')
+  @UseGuards(JwtAuthGuard)
   subscribeZona(@Param('usuarioId') usuarioId: string, @Body('zonaId') zonaId: string, @Req() req: any) {
     this.checkSelfOrAdmin(req, usuarioId);
     return this.client.send('usuario_zonas.subscribe', { usuarioId, zonaId });
   }
 
   @Delete('usuarios/:usuarioId/suscripciones/:zonaId')
+  @UseGuards(JwtAuthGuard)
   unsubscribeZona(@Param('usuarioId') usuarioId: string, @Param('zonaId') zonaId: string, @Req() req: any) {
     this.checkSelfOrAdmin(req, usuarioId);
     return this.client.send('usuario_zonas.unsubscribe', { usuarioId, zonaId });

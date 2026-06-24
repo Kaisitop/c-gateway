@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Inject, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Inject, UseGuards, Req } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { CreateReporteDto } from './dto/create-reporte.dto';
 import { UpdateReporteStatusDto } from './dto/update-reporte-status.dto';
@@ -14,14 +14,31 @@ export class ReportesController {
 
   @Post()
   @RequirePermissions('eventos:gestionar')
-  create(@Body() createReporteDto: CreateReporteDto) {
+  create(@Body() createReporteDto: CreateReporteDto, @Req() req: any) {
+    // LOPDP: ms-core solo recibe UUID opaco; el gateway asigna el sub del JWT autenticado.
+    createReporteDto.usuarioId = req.user.sub;
     return this.natsClient.send('reportes.create', createReporteDto);
   }
 
   @Get()
   @RequirePermissions('eventos:leer')
-  findAll() {
-    return this.natsClient.send('reportes.findAll', {});
+  findAll(@Req() req: any) {
+    const payload: { usuarioId?: string } = {};
+    // Ciudadano: solo sus reportes (UUID del JWT). Operador/Admin: todos.
+    if (req.user?.rol === 'Ciudadano') {
+      payload.usuarioId = req.user.sub;
+    }
+    return this.natsClient.send('reportes.findAll', payload);
+  }
+
+  @Get(':id')
+  @RequirePermissions('eventos:leer')
+  findOne(@Param('id') id: string, @Req() req: any) {
+    const payload: { id: string; usuarioId?: string } = { id };
+    if (req.user?.rol === 'Ciudadano') {
+      payload.usuarioId = req.user.sub;
+    }
+    return this.natsClient.send('reportes.findOne', payload);
   }
 
   @Put(':id/estado')
