@@ -24,4 +24,8 @@ export class RegisterUserDto {
   @IsOptional()
   @IsString()
   telefono?: string;
+
+  @IsOptional()
+  @IsString()
+  zonaId?: string;
 }
