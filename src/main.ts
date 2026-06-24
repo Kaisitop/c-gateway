@@ -16,7 +16,14 @@ async function bootstrap() {
     }),
   );
   app.useGlobalFilters(new RpcCustomExceptionFilter());
-  app.enableCors();
+
+  app.enableCors({
+    origin: ['http://localhost:3001', 'http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  });
+
   await app.listen(envs.port);
   logger.log(`Client Gateway corriendo en el puerto ${envs.port}`)
 }
