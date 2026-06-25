@@ -130,7 +130,7 @@ export class AuthController {
 
   @Delete('user/:id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('usuarios:eliminar')
+  @RequirePermissions('usuarios:update')
   deactivateUser(@Param('id') userId: string, @Req() req: any) {
     return this.client.send('deactivate.user.auth', {
       userId,

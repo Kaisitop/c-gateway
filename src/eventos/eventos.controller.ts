@@ -12,13 +12,13 @@ export class EventosController {
   constructor(@Inject(NATS_SERVICE) private readonly natsClient: ClientProxy) {}
 
   @Post()
-  @RequirePermissions('eventos:gestionar')
+  @RequirePermissions('eventos:create')
   create(@Body() createEventoDto: CreateEventoDto) {
     return this.natsClient.send('eventos.create', createEventoDto);
   }
 
   @Get()
-  @RequirePermissions('eventos:leer')
+  @RequirePermissions('eventos:read', 'eventos:read_all')
   findAll() {
     return this.natsClient.send('eventos.findAll', {});
   }

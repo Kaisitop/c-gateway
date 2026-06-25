@@ -1,13 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { envs } from './config/envs';
 import { RpcCustomExceptionFilter } from './common/exceptions/rpc-custom-exception.filter';
 
 async function bootstrap() {
-  const logger = new Logger("Client Gatewway")
+  const logger = new Logger('Client Gateway');
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api')
+
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.NATS,
+    options: { servers: envs.natsServers },
+  });
+
+  app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -24,7 +31,9 @@ async function bootstrap() {
     credentials: true,
   });
 
+  await app.startAllMicroservices();
   await app.listen(envs.port);
-  logger.log(`Client Gateway corriendo en el puerto ${envs.port}`)
+  logger.log(`Client Gateway corriendo en el puerto ${envs.port}`);
+  logger.log('WebSocket en /realtime (Socket.IO)');
 }
 bootstrap();

@@ -12,7 +12,7 @@ export class ZonasController {
 
   @Post()
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('zonas:gestionar')
+  @RequirePermissions('zonas:create')
   create(@Body() createZonaDto: CreateZonaDto) {
     return this.client.send('zonas.create', createZonaDto);
   }
@@ -24,21 +24,21 @@ export class ZonasController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('zonas:leer')
+  @RequirePermissions('zonas:read')
   findOne(@Param('id') id: string) {
     return this.client.send('zonas.findOne', id);
   }
 
   @Put(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('zonas:gestionar')
+  @RequirePermissions('zonas:update')
   update(@Param('id') id: string, @Body() updateZonaDto: UpdateZonaDto) {
     return this.client.send('zonas.update', { id, data: updateZonaDto });
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('zonas:gestionar')
+  @RequirePermissions('zonas:update')
   remove(@Param('id') id: string) {
     return this.client.send('zonas.remove', id);
   }
@@ -75,7 +75,11 @@ export class ZonasController {
 
   private checkSelfOrAdmin(req: any, targetUserId: string) {
     const user = req.user;
-    if (user.sub !== targetUserId && !user.permisos?.includes('zonas:gestionar')) {
+    if (
+      user.sub !== targetUserId &&
+      !user.permisos?.includes('zonas:update') &&
+      !user.permisos?.includes('usuarios:update')
+    ) {
       throw new ForbiddenException('No tienes permisos para acceder a las zonas de este usuario');
     }
   }

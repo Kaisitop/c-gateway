@@ -5,7 +5,7 @@ export class UpdateAlertaDto {
   id: string;
 
   @IsString()
-  estado: string; // reconocida, cerrada, falsa_alarma
+  estado: string;
 
   @IsUUID()
   operadorId: string;
@@ -13,4 +13,12 @@ export class UpdateAlertaDto {
   @IsString()
   @IsOptional()
   notas?: string;
+
+  @IsString()
+  @IsOptional()
+  comentarioCierre?: string;
+
+  @IsString()
+  @IsOptional()
+  evidenciaUrls?: string;
 }
