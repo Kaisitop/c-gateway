@@ -12,37 +12,37 @@ export class NodosController {
   constructor(@Inject(NATS_SERVICE) private readonly client: ClientProxy) {}
 
   @Post()
-  @RequirePermissions('nodos:gestionar')
+  @RequirePermissions('nodos:create')
   create(@Body() createNodoDto: CreateNodoDto) {
     return this.client.send('nodos.create', createNodoDto);
   }
 
   @Get()
-  @RequirePermissions('nodos:leer')
+  @RequirePermissions('nodos:read', 'zonas:read')
   findAll(@Query('zonaId') zonaId?: string) {
     return this.client.send('nodos.findAll', { zonaId });
   }
 
   @Get(':id')
-  @RequirePermissions('nodos:leer')
+  @RequirePermissions('nodos:read', 'zonas:read')
   findOne(@Param('id') id: string) {
     return this.client.send('nodos.findOne', id);
   }
 
   @Put(':id')
-  @RequirePermissions('nodos:gestionar')
+  @RequirePermissions('nodos:update')
   update(@Param('id') id: string, @Body() updateNodoDto: UpdateNodoDto) {
     return this.client.send('nodos.update', { id, data: updateNodoDto });
   }
 
   @Post(':id/heartbeat')
-  @RequirePermissions('nodos:gestionar')
+  @RequirePermissions('nodos:update')
   heartbeat(@Param('id') id: string) {
     return this.client.send('nodos.heartbeat', id);
   }
 
   @Delete(':id')
-  @RequirePermissions('nodos:gestionar')
+  @RequirePermissions('nodos:delete')
   remove(@Param('id') id: string) {
     return this.client.send('nodos.remove', id);
   }

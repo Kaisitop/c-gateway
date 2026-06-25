@@ -6,6 +6,8 @@ import { NodosModule } from './nodos/nodos.module';
 import { EventosModule } from './eventos/eventos.module';
 import { ReportesModule } from './reportes/reportes.module';
 import { AlertasModule } from './alertas/alertas.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { AlertasModule } from './alertas/alertas.module';
     EventosModule,
     ReportesModule,
     AlertasModule,
+    AnalyticsModule,
+    RealtimeModule,
   ],
   controllers: [],
   providers: [],

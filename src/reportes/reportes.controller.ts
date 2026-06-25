@@ -13,36 +13,58 @@ export class ReportesController {
   constructor(@Inject(NATS_SERVICE) private readonly natsClient: ClientProxy) {}
 
   @Post()
-  @RequirePermissions('eventos:gestionar')
+  @RequirePermissions('reportes:create')
   create(@Body() createReporteDto: CreateReporteDto, @Req() req: any) {
-    // LOPDP: ms-core solo recibe UUID opaco; el gateway asigna el sub del JWT autenticado.
     createReporteDto.usuarioId = req.user.sub;
     return this.natsClient.send('reportes.create', createReporteDto);
   }
 
   @Get()
-  @RequirePermissions('eventos:leer')
+  @RequirePermissions(
+    'reportes:read_anon',
+    'reportes:read_all',
+    'reportes:read_own',
+  )
   findAll(@Req() req: any) {
     const payload: { usuarioId?: string } = {};
-    // Ciudadano: solo sus reportes (UUID del JWT). Operador/Admin: todos.
-    if (req.user?.rol === 'Ciudadano') {
+    const permisos: string[] = req.user?.permisos ?? [];
+
+    if (
+      req.user?.rol === 'Ciudadano' ||
+      (permisos.includes('reportes:read_own') &&
+        !permisos.includes('reportes:read_anon') &&
+        !permisos.includes('reportes:read_all'))
+    ) {
       payload.usuarioId = req.user.sub;
     }
+
     return this.natsClient.send('reportes.findAll', payload);
   }
 
   @Get(':id')
-  @RequirePermissions('eventos:leer')
+  @RequirePermissions(
+    'reportes:read_anon',
+    'reportes:read_all',
+    'reportes:read_own',
+  )
   findOne(@Param('id') id: string, @Req() req: any) {
     const payload: { id: string; usuarioId?: string } = { id };
-    if (req.user?.rol === 'Ciudadano') {
+    const permisos: string[] = req.user?.permisos ?? [];
+
+    if (
+      req.user?.rol === 'Ciudadano' ||
+      (permisos.includes('reportes:read_own') &&
+        !permisos.includes('reportes:read_anon') &&
+        !permisos.includes('reportes:read_all'))
+    ) {
       payload.usuarioId = req.user.sub;
     }
+
     return this.natsClient.send('reportes.findOne', payload);
   }
 
   @Put(':id/estado')
-  @RequirePermissions('eventos:gestionar')
+  @RequirePermissions('reportes:update')
   updateStatus(@Param('id') id: string, @Body() updateDto: UpdateReporteStatusDto) {
     updateDto.id = id;
     return this.natsClient.send('reportes.updateStatus', updateDto);

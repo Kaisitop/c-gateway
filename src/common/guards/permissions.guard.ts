@@ -1,6 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/require-permissions.decorator';
+import { userHasPermission } from './permission-aliases';
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
@@ -11,23 +12,23 @@ export class PermissionsGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    
+
     if (!requiredPermissions) {
       return true;
     }
 
     const { user } = context.switchToHttp().getRequest();
-    
-    // Si no hay usuario o permisos en el payload, rechazar
+
     if (!user || !user.permisos) {
       throw new ForbiddenException('No tienes permisos para acceder a este recurso');
     }
 
-    // Verificar si el usuario tiene al menos uno de los permisos requeridos (o todos, según la lógica de negocio)
-    // Aquí verificamos que tenga TODOS los permisos requeridos
-    const hasPermission = () => requiredPermissions.every(permission => user.permisos.includes(permission));
+    const permisos: string[] = user.permisos;
+    const allowed = requiredPermissions.some((permission) =>
+      userHasPermission(permisos, permission),
+    );
 
-    if (!hasPermission()) {
+    if (!allowed) {
       throw new ForbiddenException('No tienes permisos para acceder a este recurso');
     }
 
