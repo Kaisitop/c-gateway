@@ -39,4 +39,9 @@ export class RealtimeController {
   handleEventoUpdated(@Payload() payload: unknown) {
     this.realtimeService.broadcast('evento.updated', payload);
   }
+
+  @EventPattern('patrullero.position')
+  handlePatrulleroPosition(@Payload() payload: unknown) {
+    this.realtimeService.broadcast('patrullero.position', payload);
+  }
 }

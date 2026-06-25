@@ -8,6 +8,7 @@ import { ReportesModule } from './reportes/reportes.module';
 import { AlertasModule } from './alertas/alertas.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { PatrullajeModule } from './patrullaje/patrullaje.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { RealtimeModule } from './realtime/realtime.module';
     AlertasModule,
     AnalyticsModule,
     RealtimeModule,
+    PatrullajeModule,
   ],
   controllers: [],
   providers: [],
