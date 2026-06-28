@@ -14,7 +14,7 @@ import {
 
 import { NATS_SERVICE } from '../config/service';
 import { ClientProxy } from '@nestjs/microservices';
-import { LoginUserDto, RegisterUserDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto } from './dto';
+import { LoginUserDto, RegisterUserDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
@@ -126,6 +126,15 @@ export class AuthController {
   @Post('reset-password')
   resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.client.send('reset.password.auth', resetPasswordDto);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  changePassword(@Body() changePasswordDto: ChangePasswordDto, @Req() req: any) {
+    return this.client.send('change.password.auth', {
+      userId: req.user.sub,
+      ...changePasswordDto,
+    });
   }
 
   @Delete('user/:id')
