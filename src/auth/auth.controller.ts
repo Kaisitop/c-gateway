@@ -14,7 +14,7 @@ import {
 
 import { NATS_SERVICE } from '../config/service';
 import { ClientProxy } from '@nestjs/microservices';
-import { LoginUserDto, RegisterUserDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from './dto';
+import { LoginUserDto, RegisterUserDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, DisablePushDto } from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
@@ -111,6 +111,20 @@ export class AuthController {
   @Post('logout')
   logoutUser(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.client.send('logout.user.auth', refreshTokenDto);
+  }
+
+  @Post('push-notifications/disable')
+  @UseGuards(JwtAuthGuard)
+  async disablePushNotifications(@Body() disablePushDto: DisablePushDto) {
+    if (disablePushDto.fcmToken) {
+      await firstValueFrom(
+        this.client.send('dispositivos.deactivate_fcm_token', {
+          fcmToken: disablePushDto.fcmToken,
+        }),
+      );
+    }
+
+    return { message: 'Notificaciones push desactivadas' };
   }
   
   @Post('verify-email')
