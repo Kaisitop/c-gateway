@@ -11,7 +11,7 @@ export class AnalyticsController {
   constructor(@Inject(NATS_SERVICE) private readonly client: ClientProxy) {}
 
   @Get('heat-map')
-  @RequirePermissions('analytics:heat_map', 'eventos:read_all')
+  @RequirePermissions('analytics:heat_map', 'eventos:read_all', 'eventos:read')
   getHeatMap(@Query('dias') dias?: string) {
     const parsed = dias ? parseInt(dias, 10) : 30;
     return this.client.send('analytics.heatMap', { dias: Number.isNaN(parsed) ? 30 : parsed });

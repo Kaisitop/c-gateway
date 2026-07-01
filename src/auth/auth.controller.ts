@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Post,
+  Get,
   Delete,
   Body,
   Param,
@@ -10,11 +11,15 @@ import {
   Ip,
   UseGuards,
   Req,
+  Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 import { NATS_SERVICE } from '../config/service';
 import { ClientProxy } from '@nestjs/microservices';
-import { LoginUserDto, RegisterUserDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, DisablePushDto } from './dto';
+import { LoginUserDto, RegisterUserDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, DisablePushDto, ResendVerificationDto, CreateUserDto } from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
@@ -27,19 +32,83 @@ export class AuthController {
   @Post('register')
   async registerUser(@Body() registerUserDto: RegisterUserDto) {
     const { zonaId, ...userData } = registerUserDto;
-    
-    // 1. Registrar usuario en ms-auth
+
     const authResponse = await firstValueFrom(
-      this.client.send('register.user.auth', userData)
+      this.client.send('register.user.auth', userData),
     );
 
-    // 2. Si hay zonaId, asignar la zona principal en ms-core (obligatorio si se envía)
+    return this.assignZonaIfProvided(authResponse, zonaId);
+  }
+
+  @Post('users')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('usuarios:create')
+  createUser(@Body() createUserDto: CreateUserDto, @Req() req: any) {
+    return this.client.send('create.user.by.admin.auth', {
+      ...createUserDto,
+      requestedBy: req.user.sub,
+    });
+  }
+
+  @Post('users/import')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('usuarios:create')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 1024 * 1024 },
+    }),
+  )
+  async importUsers(
+    @UploadedFile() file: { buffer: Buffer; originalname?: string } | undefined,
+    @Body('rolNombre') rolNombre: string,
+    @Req() req: any,
+  ) {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Debe adjuntar un archivo CSV o Excel');
+    }
+
+    const name = file.originalname?.toLowerCase() ?? '';
+    const isExcel = name.endsWith('.xlsx') || name.endsWith('.xls');
+    const isCsv = name.endsWith('.csv');
+    if (!isExcel && !isCsv) {
+      throw new BadRequestException('Formato no soportado. Use .csv, .xlsx o .xls');
+    }
+
+    const rol = rolNombre === 'Policia' ? 'Policia' : 'Operador';
+
+    const payload = isExcel
+      ? {
+          format: 'xlsx' as const,
+          contentBase64: file.buffer.toString('base64'),
+          rolNombreDefault: rol,
+          requestedBy: req.user.sub,
+        }
+      : {
+          format: 'csv' as const,
+          content: file.buffer.toString('utf-8'),
+          rolNombreDefault: rol,
+          requestedBy: req.user.sub,
+        };
+
+    return firstValueFrom(
+      this.client.send('bulk.import.users.by.admin.auth', payload),
+    );
+  }
+
+  @Get('users')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('usuarios:read')
+  findUsers(@Query('rol') rol?: string) {
+    return this.client.send('usuarios.find', rol ? { rol } : {});
+  }
+
+  private async assignZonaIfProvided(authResponse: { id?: string }, zonaId?: string) {
     if (zonaId && authResponse.id) {
       try {
         await firstValueFrom(
           this.client.send('usuario_zonas.set_principal', {
             usuarioId: authResponse.id,
-            zonaId: zonaId,
+            zonaId,
           }),
         );
       } catch (error) {
@@ -130,6 +199,11 @@ export class AuthController {
   @Post('verify-email')
   verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
     return this.client.send('verify.email.auth', verifyEmailDto);
+  }
+
+  @Post('resend-verification')
+  resendVerification(@Body() resendVerificationDto: ResendVerificationDto) {
+    return this.client.send('resend.verification.auth', resendVerificationDto);
   }
 
   @Post('forgot-password')
