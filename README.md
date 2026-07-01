@@ -545,6 +545,79 @@ Estados usados:
 pendiente | en_proceso | resuelto | falso
 ```
 
+### Ver detalle de reporte (con fotos)
+
+Requiere permiso `reportes:read_all` (admin/operador) o `reportes:read_own` (ciudadano, solo sus reportes).
+
+```http
+GET /api/reportes/{{reporteId}}
+Authorization: Bearer {{accessToken}}
+```
+
+La respuesta incluye `fotosUrls` (JSON array en texto o URLs de Cloudinary).
+
+## Media — subida de imágenes (Cloudinary)
+
+Las fotos **no** viajan en base64 al crear reportes o cerrar alertas. Primero se suben a Cloudinary y luego se envían las URLs.
+
+### Subir imagen
+
+```http
+POST /api/media/upload?tipo=reporte
+POST /api/media/upload?tipo=evidencia
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data
+```
+
+| Query `tipo` | Uso | Permiso requerido |
+|---|---|---|
+| `reporte` (default) | Fotos del ciudadano al crear reporte | `reportes:create` |
+| `evidencia` | Fotos policiales al cerrar alerta | `alertas:update_status` |
+
+Campo del formulario: `file` (imagen, máx. 5 MB).
+
+Respuesta:
+
+```json
+{
+  "url": "https://res.cloudinary.com/.../centinela/ciudadano/2026-06-30/....jpg",
+  "publicId": "centinela/ciudadano/2026-06-30/2026-06-30_143022_a1b2c3d4_abcd1234",
+  "width": 1920,
+  "height": 1080
+}
+```
+
+Organización en Cloudinary (zona horaria `America/Guayaquil`):
+
+```text
+{CLOUDINARY_FOLDER}/ciudadano/YYYY-MM-DD/
+{CLOUDINARY_FOLDER}/policial/YYYY-MM-DD/
+```
+
+Variables en `.env` del monorepo (inyectadas a `c-gateway` vía Docker Compose):
+
+```env
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+CLOUDINARY_FOLDER=centinela
+```
+
+### Flujo recomendado con fotos
+
+```text
+1. POST /api/media/upload?tipo=reporte  (por cada foto)
+2. POST /api/reportes  con fotosUrls: ["url1", "url2"]
+3. GET  /api/reportes/{{id}}  → admin/operador ven fotosUrls en el panel web
+```
+
+Para patrullero al cerrar alerta:
+
+```text
+1. POST /api/media/upload?tipo=evidencia
+2. PATCH /api/alertas/{{id}}/cerrar  con evidenciaUrls: ["url1"]
+```
+
 ## Alertas
 
 Las alertas se generan automaticamente desde eventos criticos o reportes de `panico`/`incidente`.
@@ -592,6 +665,35 @@ Content-Type: application/json
   "falsaAlarma": true
 }
 ```
+
+### Ver detalle de alerta (evidencia + fotos del reporte)
+
+```http
+GET /api/alertas/{{alertaId}}
+Authorization: Bearer {{accessToken}}
+```
+
+Incluye `evidenciaUrls` (fotos policiales) y, si hay reporte vinculado, `reporte.fotosUrls` (fotos del ciudadano).
+
+### Cerrar alerta con evidencia (patrullero)
+
+```http
+PATCH /api/alertas/{{alertaId}}/cerrar
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+```
+
+```json
+{
+  "estado": "completada",
+  "comentarioCierre": "Unidad verificó el incidente",
+  "evidenciaUrls": [
+    "https://res.cloudinary.com/.../centinela/policial/2026-06-30/....jpg"
+  ]
+}
+```
+
+Las URLs deben obtenerse previamente con `POST /api/media/upload?tipo=evidencia`.
 
 ## Payload MQTT recomendado para la app movil
 
