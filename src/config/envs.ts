@@ -9,6 +9,8 @@ interface EnvVars {
     CLOUDINARY_API_KEY: string;
     CLOUDINARY_API_SECRET: string;
     CLOUDINARY_FOLDER: string;
+    APP_RESET_URL: string;
+    ANDROID_APP_PACKAGE: string;
 }
 
 const envsSchema = joi.object({
@@ -19,6 +21,8 @@ const envsSchema = joi.object({
     CLOUDINARY_API_KEY: joi.string().allow('').optional(),
     CLOUDINARY_API_SECRET: joi.string().allow('').optional(),
     CLOUDINARY_FOLDER: joi.string().default('centinela'),
+    APP_RESET_URL: joi.string().default('centinela://reset-password'),
+    ANDROID_APP_PACKAGE: joi.string().default('com.example.centinela_milagro'),
 })
 .unknown(true);
 
@@ -42,4 +46,6 @@ export const envs = {
         apiSecret: envVars.CLOUDINARY_API_SECRET,
     },
     cloudinaryFolder: envVars.CLOUDINARY_FOLDER || 'centinela',
+    appResetUrl: (envVars.APP_RESET_URL || 'centinela://reset-password').replace(/\/$/, ''),
+    androidAppPackage: envVars.ANDROID_APP_PACKAGE || 'com.example.centinela_milagro',
 }

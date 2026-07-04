@@ -14,16 +14,22 @@ import {
   Query,
   UploadedFile,
   UseInterceptors,
+  Header,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 import { NATS_SERVICE } from '../config/service';
+import { envs } from '../config/envs';
 import { ClientProxy } from '@nestjs/microservices';
 import { LoginUserDto, RegisterUserDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, DisablePushDto, RegisterPushDto, ResendVerificationDto, CreateUserDto } from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
 import { firstValueFrom } from 'rxjs';
+import {
+  buildResetPasswordBridgeErrorHtml,
+  buildResetPasswordBridgeHtml,
+} from './reset-password-bridge.util';
 
 @Controller('auth')
 export class AuthController {
@@ -226,6 +232,30 @@ export class AuthController {
   @Post('forgot-password')
   forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     return this.client.send('forgot.password.auth', forgotPasswordDto);
+  }
+
+  @Get('reset-password/open')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  openResetPasswordInApp(@Query('token') token?: string) {
+    const trimmed = token?.trim();
+    if (!trimmed || !/^[a-f0-9]{64}$/i.test(trimmed)) {
+      return buildResetPasswordBridgeErrorHtml(
+        'El enlace no es válido o ya expiró. Solicita uno nuevo desde la app.',
+      );
+    }
+
+    const encodedToken = encodeURIComponent(trimmed);
+    const appResetUrl = `${envs.appResetUrl}?token=${encodedToken}`;
+    const androidIntentUrl =
+      `intent://reset-password?token=${encodedToken}` +
+      `#Intent;scheme=centinela;package=${envs.androidAppPackage};end`;
+
+    return buildResetPasswordBridgeHtml({
+      token: trimmed,
+      appResetUrl,
+      androidIntentUrl,
+      androidAppPackage: envs.androidAppPackage,
+    });
   }
 
   @Post('reset-password')
