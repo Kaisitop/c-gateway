@@ -19,7 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 
 import { NATS_SERVICE } from '../config/service';
 import { ClientProxy } from '@nestjs/microservices';
-import { LoginUserDto, RegisterUserDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, DisablePushDto, ResendVerificationDto, CreateUserDto } from './dto';
+import { LoginUserDto, RegisterUserDto, RefreshTokenDto, VerifyEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto, DisablePushDto, RegisterPushDto, ResendVerificationDto, CreateUserDto } from './dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
@@ -194,6 +194,23 @@ export class AuthController {
     }
 
     return { message: 'Notificaciones push desactivadas' };
+  }
+
+  @Post('push-notifications/register')
+  @UseGuards(JwtAuthGuard)
+  async registerPushNotifications(
+    @Body() registerPushDto: RegisterPushDto,
+    @Req() req: { user: { sub: string } },
+  ) {
+    await firstValueFrom(
+      this.client.send('auth.register_fcm_token', {
+        userId: req.user.sub,
+        fcmToken: registerPushDto.fcmToken,
+        plataforma: registerPushDto.plataforma,
+      }),
+    );
+
+    return { message: 'FCM registrado' };
   }
   
   @Post('verify-email')

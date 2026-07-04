@@ -6,5 +6,6 @@ export * from './forgot-password.dto';
 export * from './reset-password.dto';
 export * from './change-password.dto';
 export * from './disable-push.dto';
+export * from './register-push.dto';
 export * from './resend-verification.dto';
 export * from './create-user.dto';

@@ -1,45 +1,116 @@
-import { Catch, ArgumentsHost, ExceptionFilter, HttpStatus } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { Response } from 'express';
 
-@Catch(RpcException)
+type RpcErrorPayload = {
+  statusCode?: number | string;
+  message?: unknown;
+  status?: number | string;
+  error?: string;
+};
+
+@Catch()
 export class RpcCustomExceptionFilter implements ExceptionFilter {
-  catch(exception: RpcException, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
-    const rpcError: any = exception.getError();
-
-    // Caso 1: El microservicio lanzó una RpcException estructurada con statusCode y message
-    // Ejemplo: throw new RpcException({ statusCode: 409, message: 'El Usuario ya existe' })
-    if (
-      typeof rpcError === 'object' &&
-      rpcError !== null &&
-      'statusCode' in rpcError &&
-      'message' in rpcError
-    ) {
-      const status = isNaN(+rpcError['statusCode']) ? HttpStatus.BAD_REQUEST : +rpcError['statusCode'];
-      return response.status(status).json(rpcError);
+    if (exception instanceof HttpException) {
+      const status = exception.getStatus();
+      const body = exception.getResponse();
+      return response.status(status).json(body);
     }
 
-    // Caso 2: El error proviene del ValidationPipe del microservicio
-    // NestJS Microservices ValidationPipe empaqueta los errores de validación en este formato
-    if (
-      typeof rpcError === 'object' &&
-      rpcError !== null &&
-      'status' in rpcError &&
-      'message' in rpcError &&
-      'error' in rpcError
-    ) {
-      // Intenta mapear el status code o usar 400 Bad Request como fallback
-      const status = isNaN(+rpcError['status']) ? HttpStatus.BAD_REQUEST : +rpcError['status'];
-      return response.status(status).json(rpcError);
+    if (exception instanceof RpcException) {
+      return this.sendRpcPayload(response, exception.getError());
     }
 
-    // Caso 3: Fallback genérico para cualquier otro tipo de error (ej: string o estructura desconocida)
+    const direct = this.normalizeRpcPayload(exception);
+    if (direct) {
+      return this.sendRpcPayload(response, direct);
+    }
+
+    return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      message: 'Internal server error',
+    });
+  }
+
+  private sendRpcPayload(response: Response, rpcError: unknown) {
+    const payload = this.normalizeRpcPayload(rpcError);
+    if (payload) {
+      const status = this.resolveStatus(payload);
+      return response.status(status).json({
+        statusCode: status,
+        message: this.resolveMessage(payload.message),
+      });
+    }
+
     return response.status(HttpStatus.BAD_REQUEST).json({
       statusCode: HttpStatus.BAD_REQUEST,
-      message: rpcError,
+      message: typeof rpcError === 'string' ? rpcError : 'Solicitud inválida',
     });
+  }
+
+  private normalizeRpcPayload(error: unknown): RpcErrorPayload | null {
+    if (error == null) return null;
+
+    if (typeof error === 'string') {
+      return { statusCode: HttpStatus.BAD_REQUEST, message: error };
+    }
+
+    if (typeof error !== 'object') return null;
+
+    const candidate = error as RpcErrorPayload;
+
+    if ('statusCode' in candidate && 'message' in candidate) {
+      return candidate;
+    }
+
+    // ValidationPipe remoto: { status, message, error }
+    if ('status' in candidate && 'message' in candidate && 'error' in candidate) {
+      return {
+        statusCode: candidate.status,
+        message: candidate.message,
+        error: candidate.error,
+      };
+    }
+
+    // ClientProxy NATS: { status: 'error', message: { statusCode, message } }
+    if (candidate.status === 'error' && candidate.message != null) {
+      if (typeof candidate.message === 'object') {
+        return this.normalizeRpcPayload(candidate.message);
+      }
+      return {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: candidate.message,
+      };
+    }
+
+    return null;
+  }
+
+  private resolveStatus(payload: RpcErrorPayload): number {
+    const raw = payload.statusCode ?? payload.status;
+    const parsed = Number(raw);
+    if (!Number.isNaN(parsed) && parsed >= 400 && parsed < 600) {
+      return parsed;
+    }
+    return HttpStatus.BAD_REQUEST;
+  }
+
+  private resolveMessage(message: unknown): string | string[] {
+    if (message == null) return 'Error inesperado';
+    if (typeof message === 'string') return message;
+    if (Array.isArray(message)) {
+      return message.map((item) => String(item));
+    }
+    return String(message);
   }
 }
