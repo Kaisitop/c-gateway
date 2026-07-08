@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Patch, Body, Param, Inject, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Inject, UseGuards, Req, Query } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { UpdateAlertaDto } from './dto/update-alerta.dto';
 import { CerrarAlertaPatrulleroDto } from './dto/cerrar-alerta-patrullero.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
+import { Public } from '../common/decorators/public.decorator';
 import { PermissionsGuard } from '../common/guards/permissions.guard';
 import { NATS_SERVICE } from '../config/service';
 
@@ -11,6 +12,22 @@ import { NATS_SERVICE } from '../config/service';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AlertasController {
   constructor(@Inject(NATS_SERVICE) private readonly natsClient: ClientProxy) {}
+
+  @Public()
+  @Get('mapa/public')
+  findForMapPublic(@Query('horas') horas?: string) {
+    const parsed = horas != null ? Number.parseInt(horas, 10) : 24;
+    const windowHours = Number.isFinite(parsed) ? parsed : 24;
+    return this.natsClient.send('alertas.findForMap', { horas: windowHours });
+  }
+
+  @Get('mapa')
+  @RequirePermissions('alertas:read', 'alertas:read_all')
+  findForMap(@Query('horas') horas?: string) {
+    const parsed = horas != null ? Number.parseInt(horas, 10) : 24;
+    const windowHours = Number.isFinite(parsed) ? parsed : 24;
+    return this.natsClient.send('alertas.findForMap', { horas: windowHours });
+  }
 
   @Get()
   @RequirePermissions('alertas:read', 'alertas:read_all')
