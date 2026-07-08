@@ -14,15 +14,18 @@ export class NotificacionesController {
     @Req() req: any,
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('horas') horas?: string,
   ) {
     const parsedLimit = limit ? Number(limit) : 50;
     const parsedOffset = offset ? Number(offset) : 0;
+    const parsedHoras = horas ? Number(horas) : 24;
 
     return firstValueFrom(
       this.natsClient.send('notificaciones.find_by_destinatario', {
         destinatarioId: req.user.sub,
         limit: Number.isFinite(parsedLimit) ? parsedLimit : 50,
         offset: Number.isFinite(parsedOffset) ? parsedOffset : 0,
+        horas: Number.isFinite(parsedHoras) ? parsedHoras : 24,
       }),
     );
   }
