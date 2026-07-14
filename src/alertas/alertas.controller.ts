@@ -3,6 +3,7 @@ import { ClientProxy } from '@nestjs/microservices';
 import { UpdateAlertaDto } from './dto/update-alerta.dto';
 import { CerrarAlertaPatrulleroDto } from './dto/cerrar-alerta-patrullero.dto';
 import { ReconocerAlertaDto } from './dto/reconocer-alerta.dto';
+import { AtenderAlertaCampoDto } from './dto/atender-alerta-campo.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
 import { Public } from '../common/decorators/public.decorator';
@@ -61,6 +62,27 @@ export class AlertasController {
     return this.natsClient.send('alertas.updateStatus', updateDto);
   }
 
+  /** Patrullero: reconoce en campo con informe y evidencia (no cierra el caso). */
+  @Post(':id/atender-campo')
+  @RequirePermissions('alertas:update_status')
+  atenderCampo(
+    @Param('id') id: string,
+    @Body() body: AtenderAlertaCampoDto,
+    @Req() req: any,
+  ) {
+    const updateDto: UpdateAlertaDto = {
+      id,
+      estado: 'reconocida',
+      operadorId: req.user.sub,
+      comentarioCierre: body.comentarioCierre,
+      evidenciaUrls: body.evidenciaUrls?.length
+        ? JSON.stringify(body.evidenciaUrls)
+        : undefined,
+      notas: body.comentarioCierre,
+    };
+    return this.natsClient.send('alertas.updateStatus', updateDto);
+  }
+
   @Patch(':id/cerrar')
   @RequirePermissions('alertas:update_status')
   cerrarPatrullero(
@@ -68,9 +90,10 @@ export class AlertasController {
     @Body() body: CerrarAlertaPatrulleroDto,
     @Req() req: { user: { sub: string; rol?: string } },
   ) {
-    if (req.user?.rol === 'Policia') {
+    const rol = String(req.user?.rol ?? '').toLowerCase();
+    if (rol === 'policia') {
       throw new ForbiddenException(
-        'El cierre de alertas corresponde al operador del centro de comando. Use reconocer en campo.',
+        'El patrullero no puede cerrar alertas. Use atender-campo y deje el cierre al operador.',
       );
     }
     const updateDto: UpdateAlertaDto & {
@@ -96,9 +119,10 @@ export class AlertasController {
     @Body() body: { notas?: string; falsaAlarma?: boolean },
     @Req() req: { user: { sub: string; rol?: string } },
   ) {
-    if (req.user?.rol === 'Policia') {
+    const rol = String(req.user?.rol ?? '').toLowerCase();
+    if (rol === 'policia') {
       throw new ForbiddenException(
-        'El cierre de alertas corresponde al operador del centro de comando.',
+        'El patrullero no puede cerrar alertas. Envíe el informe de campo y el operador cerrará el caso.',
       );
     }
     const updateDto: UpdateAlertaDto = {
