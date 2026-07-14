@@ -65,8 +65,13 @@ export class ReportesController {
 
   @Put(':id/estado')
   @RequirePermissions('reportes:update')
-  updateStatus(@Param('id') id: string, @Body() updateDto: UpdateReporteStatusDto) {
+  updateStatus(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateReporteStatusDto,
+    @Req() req: { user: { sub: string } },
+  ) {
     updateDto.id = id;
+    updateDto.operadorId = updateDto.operadorId ?? req.user.sub;
     return this.natsClient.send('reportes.updateStatus', updateDto);
   }
 }

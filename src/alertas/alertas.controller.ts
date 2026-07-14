@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Patch, Body, Param, Inject, UseGuards, Req, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Inject, UseGuards, Req, Query, ForbiddenException } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { UpdateAlertaDto } from './dto/update-alerta.dto';
 import { CerrarAlertaPatrulleroDto } from './dto/cerrar-alerta-patrullero.dto';
+import { ReconocerAlertaDto } from './dto/reconocer-alerta.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RequirePermissions } from '../common/decorators/require-permissions.decorator';
 import { Public } from '../common/decorators/public.decorator';
@@ -43,11 +44,19 @@ export class AlertasController {
 
   @Post(':id/reconocer')
   @RequirePermissions('alertas:update_status')
-  reconocer(@Param('id') id: string, @Req() req: any) {
+  reconocer(
+    @Param('id') id: string,
+    @Body() body: ReconocerAlertaDto,
+    @Req() req: { user: { sub: string } },
+  ) {
     const updateDto: UpdateAlertaDto = {
       id,
       estado: 'reconocida',
       operadorId: req.user.sub,
+      notas: body?.notas,
+      evidenciaUrls: body?.evidenciaUrls?.length
+        ? JSON.stringify(body.evidenciaUrls)
+        : undefined,
     };
     return this.natsClient.send('alertas.updateStatus', updateDto);
   }
@@ -57,8 +66,13 @@ export class AlertasController {
   cerrarPatrullero(
     @Param('id') id: string,
     @Body() body: CerrarAlertaPatrulleroDto,
-    @Req() req: any,
+    @Req() req: { user: { sub: string; rol?: string } },
   ) {
+    if (req.user?.rol === 'Policia') {
+      throw new ForbiddenException(
+        'El cierre de alertas corresponde al operador del centro de comando. Use reconocer en campo.',
+      );
+    }
     const updateDto: UpdateAlertaDto & {
       comentarioCierre?: string;
       evidenciaUrls?: string;
@@ -80,8 +94,13 @@ export class AlertasController {
   cerrar(
     @Param('id') id: string,
     @Body() body: { notas?: string; falsaAlarma?: boolean },
-    @Req() req: any,
+    @Req() req: { user: { sub: string; rol?: string } },
   ) {
+    if (req.user?.rol === 'Policia') {
+      throw new ForbiddenException(
+        'El cierre de alertas corresponde al operador del centro de comando.',
+      );
+    }
     const updateDto: UpdateAlertaDto = {
       id,
       estado: body.falsaAlarma ? 'falsa_alarma' : 'cerrada',

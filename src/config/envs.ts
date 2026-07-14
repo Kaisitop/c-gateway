@@ -11,6 +11,7 @@ interface EnvVars {
     CLOUDINARY_FOLDER: string;
     APP_RESET_URL: string;
     ANDROID_APP_PACKAGE: string;
+    CORS_ORIGINS: string;
 }
 
 const envsSchema = joi.object({
@@ -23,6 +24,7 @@ const envsSchema = joi.object({
     CLOUDINARY_FOLDER: joi.string().default('centinela'),
     APP_RESET_URL: joi.string().default('centinela://reset-password'),
     ANDROID_APP_PACKAGE: joi.string().default('com.example.centinela_milagro'),
+    CORS_ORIGINS: joi.string().default('http://localhost:3001,http://localhost:3000'),
 })
 .unknown(true);
 
@@ -48,4 +50,5 @@ export const envs = {
     cloudinaryFolder: envVars.CLOUDINARY_FOLDER || 'centinela',
     appResetUrl: (envVars.APP_RESET_URL || 'centinela://reset-password').replace(/\/$/, ''),
     androidAppPackage: envVars.ANDROID_APP_PACKAGE || 'com.example.centinela_milagro',
+    corsOrigins: envVars.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean),
 }

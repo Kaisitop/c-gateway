@@ -12,11 +12,12 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { RealtimeService } from './realtime.service';
+import { envs } from '../config/envs';
 
 @WebSocketGateway({
   namespace: '/realtime',
   cors: {
-    origin: ['http://localhost:3001', 'http://localhost:3000'],
+    origin: envs.corsOrigins,
     credentials: true,
   },
 })
