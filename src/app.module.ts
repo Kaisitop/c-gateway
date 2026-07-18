@@ -11,6 +11,7 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { PatrullajeModule } from './patrullaje/patrullaje.module';
 import { NotificacionesModule } from './notificaciones/notificaciones.module';
 import { MediaModule } from './media/media.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { MediaModule } from './media/media.module';
     PatrullajeModule,
     NotificacionesModule,
     MediaModule,
+    AdminModule,
   ],
   controllers: [],
   providers: [],
