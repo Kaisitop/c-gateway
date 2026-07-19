@@ -62,6 +62,21 @@ export class AlertasController {
     return this.natsClient.send('alertas.updateStatus', updateDto);
   }
 
+  /** Patrullero: marca que va en camino hacia la alerta. */
+  @Post(':id/en-camino')
+  @RequirePermissions('alertas:update_status')
+  enCamino(
+    @Param('id') id: string,
+    @Req() req: { user: { sub: string } },
+  ) {
+    const updateDto: UpdateAlertaDto = {
+      id,
+      estado: 'en_proceso',
+      operadorId: req.user.sub,
+    };
+    return this.natsClient.send('alertas.updateStatus', updateDto);
+  }
+
   /** Patrullero: reconoce en campo con informe y evidencia (no cierra el caso). */
   @Post(':id/atender-campo')
   @RequirePermissions('alertas:update_status')

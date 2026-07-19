@@ -1,8 +1,12 @@
 # Client Gateway - Guia de endpoints HTTP
 
-El `client-gateway` es el punto de entrada HTTP del sistema CENTINELA. Todas las rutas usan el prefijo `/api` y se comunican por NATS con `ms-auth` y `ms-core`.
+> **Monorepo:** [README.md](../README.md) · [docs/contexto.md](../docs/contexto.md) · [docs/ARQUITECTURA_BACKEND.md](../docs/ARQUITECTURA_BACKEND.md)
 
-En el prototipo de titulacion, el microfono no es una Raspberry Pi: la app movil actua como nodo de captura. La app registra el dispositivo como nodo, escucha o clasifica audio, obtiene GPS y envia eventos con `latitud` y `longitud`.
+El `c-gateway` es el punto de entrada HTTP/WebSocket del sistema CENTINELA. Rutas bajo `/api`; comunicación interna por NATS con `ms-auth`, `ms-core` y eventos hacia `ms-notificaciones`.
+
+**Capacidades recientes:** WebSocket `/realtime`, patrullaje (`/patrullaje`, GPS), alertas `en_proceso` + `atender-campo`, admin purge, reset password web vs app, Cloudinary media.
+
+En el prototipo de titulacion, la app movil actua como nodo de captura (microfono + GPS).
 
 ## Base
 
@@ -123,9 +127,20 @@ Content-Type: application/json
 
 ```json
 {
-  "email": "admin@centinela.com"
+  "email": "admin@centinela.com",
+  "channel": "web"
 }
 ```
+
+`channel`: `web` (panel → enlace a `PUBLIC_WEB_URL/reset-password`) o `app` (bridge deep link). Si se omite, `ms-auth` infiere por rol (Admin/Operador/Policia → web; Ciudadano → app).
+
+### Abrir reset en app (bridge HTML)
+
+```http
+GET /api/auth/reset-password/open?token={{tokenReset}}
+```
+
+Redirige a la app móvil (`centinela://reset-password`). Solo para canal app.
 
 ### Resetear password
 
@@ -629,11 +644,47 @@ GET /api/alertas
 Authorization: Bearer {{accessToken}}
 ```
 
-### Reconocer alerta
+### Reconocer alerta (operador, desde panel)
 
 ```http
 POST /api/alertas/{{alertaId}}/reconocer
 Authorization: Bearer {{accessToken}}
+```
+
+### Marcar en camino (patrullero)
+
+Pasa la alerta de `activa` → `en_proceso`. Asigna `reconocida_por` al patrullero.
+
+```http
+POST /api/alertas/{{alertaId}}/en-camino
+Authorization: Bearer {{accessToken}}
+```
+
+Permiso: `alertas:update_status` (rol Policia).
+
+### Atender en campo (patrullero)
+
+Pasa `en_proceso` → `reconocida` con informe y evidencia. **No cierra** el caso.
+
+```http
+POST /api/alertas/{{alertaId}}/atender-campo
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+```
+
+```json
+{
+  "comentarioCierre": "Sitio acordonado, sin novedad",
+  "evidenciaUrls": ["https://res.cloudinary.com/.../foto.jpg"]
+}
+```
+
+El operador cierra después con `POST /api/alertas/:id/cerrar`.
+
+Estados de alerta:
+
+```text
+activa → en_proceso → reconocida → cerrada | falsa_alarma | completada
 ```
 
 ### Cerrar alerta
@@ -694,6 +745,24 @@ Content-Type: application/json
 ```
 
 Las URLs deben obtenerse previamente con `POST /api/media/upload?tipo=evidencia`.
+
+## Admin (solo rol Admin)
+
+### Limpiar datos de demo
+
+```http
+POST /api/admin/purge-demo-data
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+```
+
+```json
+{
+  "confirmPhrase": "LIMPIAR DATOS"
+}
+```
+
+Purga datos operativos (`ms-core`) y usuarios no seed (`ms-auth`). Permiso: `usuarios:update`.
 
 ## Payload MQTT recomendado para la app movil
 
